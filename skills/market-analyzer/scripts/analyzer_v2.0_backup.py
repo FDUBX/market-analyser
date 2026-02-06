@@ -85,43 +85,51 @@ class MarketAnalyzer:
             return {"error": str(e), "ticker": ticker}
     
     def _calculate_technical_score(self, hist):
-        """Calculate technical analysis score (0-10) - v2.1 WEIGHTED indicators"""
+        """Calculate technical analysis score (0-10) - diversified indicators"""
+        scores = []
         
-        # Core indicators (proven, higher weight)
+        # RSI (Relative Strength Index)
         rsi = self._calculate_rsi(hist['Close'])
-        if rsi < 30:
-            rsi_score = 8
-        elif rsi > 70:
-            rsi_score = 2
+        if rsi < 30:  # Oversold
+            scores.append(8)
+        elif rsi > 70:  # Overbought
+            scores.append(2)
         else:
-            rsi_score = 4 + (rsi - 30) / 20
+            scores.append(4 + (rsi - 30) / 20)
         
-        macd_score = self._calculate_macd(hist['Close'])
-        bb_score = self._calculate_bollinger(hist['Close'])
-        trend_score = self._calculate_trend(hist['Close'])
-        volume_score = self._calculate_volume_signal(hist)
+        # MACD
+        scores.append(self._calculate_macd(hist['Close']))
         
-        # New indicators (supplementary, lower weight)
-        adx_score = self._calculate_adx_score(hist) or 5  # Default to neutral
-        willr_score = self._calculate_williams_r_score(hist) or 5
-        obv_score = self._calculate_obv_score(hist) or 5
-        pos_52w_score = self._calculate_52w_position_score(hist) or 5
+        # Bollinger Bands
+        scores.append(self._calculate_bollinger(hist['Close']))
         
-        # v2.1: WEIGHTED SCORING
-        # Core indicators get 80%, new ones get 20%
-        weighted_score = (
-            rsi_score * 0.20 +        # 20% - Most reliable momentum
-            macd_score * 0.18 +       # 18% - Trend confirmation
-            bb_score * 0.15 +         # 15% - Volatility/extremes
-            trend_score * 0.15 +      # 15% - SMA crossover
-            volume_score * 0.12 +     # 12% - Volume confirmation
-            adx_score * 0.08 +        #  8% - Trend strength (new)
-            willr_score * 0.06 +      #  6% - Momentum complement (new)
-            obv_score * 0.03 +        #  3% - Volume trend (new)
-            pos_52w_score * 0.03      #  3% - Support/resistance (new)
-        )
+        # Trend (SMA crossover)
+        scores.append(self._calculate_trend(hist['Close']))
         
-        return weighted_score
+        # Volume analysis
+        scores.append(self._calculate_volume_signal(hist))
+        
+        # ADX - trend strength (strong trend = clearer signal)
+        adx_score = self._calculate_adx_score(hist)
+        if adx_score is not None:
+            scores.append(adx_score)
+        
+        # Williams %R - momentum (complement to RSI)
+        willr_score = self._calculate_williams_r_score(hist)
+        if willr_score is not None:
+            scores.append(willr_score)
+        
+        # OBV trend - volume confirming price
+        obv_score = self._calculate_obv_score(hist)
+        if obv_score is not None:
+            scores.append(obv_score)
+        
+        # Price position in 52-week range (support/resistance)
+        pos_52w = self._calculate_52w_position_score(hist)
+        if pos_52w is not None:
+            scores.append(pos_52w)
+        
+        return np.mean(scores)
     
     def _calculate_fundamental_score(self, info):
         """Calculate fundamental analysis score (0-10) - diversified indicators"""
