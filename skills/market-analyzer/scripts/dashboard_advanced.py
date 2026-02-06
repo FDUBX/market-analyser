@@ -74,6 +74,7 @@ def generate_nav(active='simulator'):
         <a href="/simulator" class="{'active' if active == 'simulator' else ''}">🎮 Simulator</a>
         <a href="/strategies" class="{'active' if active == 'strategies' else ''}">⚙️ Strategies</a>
         <a href="/compare" class="{'active' if active == 'compare' else ''}">📈 Compare</a>
+        <a href="/live" class="{'active' if active == 'live' else ''}">🔴 Live Trading</a>
     </nav>
     """
 
@@ -690,6 +691,258 @@ async def portfolio_details(portfolio_id: int):
     </body>
     </html>
     """
+
+@app.get("/live", response_class=HTMLResponse)
+async def live_trading():
+    """Live trading dashboard"""
+    try:
+        from live_monitor import LiveMonitor
+        import sqlite3
+        
+        # Load config
+        with open('../config.json', 'r') as f:
+            config = json.load(f)
+        watchlist = config['watchlist']
+        
+        # Get live portfolio state
+        monitor = LiveMonitor()
+        monitor.update_positions_prices(watchlist)
+        monitor.calculate_total_value()
+        state = monitor.get_portfolio_state()
+        
+        initial = 10000
+        pnl = state['total_value'] - initial
+        pnl_pct = (pnl / initial) * 100
+        
+        # Get recent trades
+        conn = sqlite3.connect(monitor.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT ticker, action, shares, price, reason, timestamp, pnl
+            FROM trades
+            ORDER BY timestamp DESC
+            LIMIT 10
+        ''')
+        recent_trades = cursor.fetchall()
+        conn.close()
+        
+        # Build trades table HTML
+        trades_html = ""
+        if recent_trades:
+            trades_html = "<table><thead><tr><th>Date</th><th>Action</th><th>Ticker</th><th>Shares</th><th>Prix</th><th>Raison</th><th>P&L</th></tr></thead><tbody>"
+            for trade in recent_trades:
+                ticker, action, shares, price, reason, timestamp, pnl_trade = trade
+                action_color = '#10b981' if action == 'BUY' else '#ef4444'
+                pnl_display = f"${pnl_trade:+.2f}" if pnl_trade else "-"
+                pnl_class = 'positive' if (pnl_trade and pnl_trade > 0) else 'negative' if pnl_trade else ''
+                date_str = datetime.fromisoformat(timestamp).strftime('%Y-%m-%d %H:%M')
+                
+                trades_html += f"""
+                <tr>
+                    <td>{date_str}</td>
+                    <td style="color: {action_color}; font-weight: bold;">{action}</td>
+                    <td>{ticker}</td>
+                    <td>{shares}</td>
+                    <td>${price:.2f}</td>
+                    <td>{reason}</td>
+                    <td class="{pnl_class}">{pnl_display}</td>
+                </tr>
+                """
+            trades_html += "</tbody></table>"
+        else:
+            trades_html = "<p>Aucun trade enregistré</p>"
+        
+        # Build positions table HTML
+        positions_html = ""
+        if state['positions']:
+            positions_html = "<table><thead><tr><th>Ticker</th><th>Shares</th><th>Prix d'entrée</th><th>Prix actuel</th><th>P&L %</th><th>Valeur</th><th>SL/TP</th></tr></thead><tbody>"
+            for pos in state['positions']:
+                pnl_class = 'positive' if pos['pnl_pct'] >= 0 else 'negative'
+                positions_html += f"""
+                <tr>
+                    <td style="font-weight: bold;">{pos['ticker']}</td>
+                    <td>{pos['shares']}</td>
+                    <td>${pos['avg_price']:.2f}</td>
+                    <td>${pos['current_price'] or pos['avg_price']:.2f}</td>
+                    <td class="{pnl_class}">{pos['pnl_pct']:+.2f}%</td>
+                    <td>${pos['value']:,.2f}</td>
+                    <td style="font-size: 0.85em;">${pos['stop_loss']:.2f} / ${pos['take_profit']:.2f}</td>
+                </tr>
+                """
+            positions_html += "</tbody></table>"
+        else:
+            positions_html = "<p>Aucune position ouverte</p>"
+        
+        # Analyze current signals
+        signals_html = ""
+        try:
+            signals = monitor.analyze_market(watchlist)
+            if signals:
+                signals_html = "<table><thead><tr><th>Ticker</th><th>Action</th><th>Score</th><th>Prix</th><th>Raison</th></tr></thead><tbody>"
+                for sig in signals:
+                    action_color = '#10b981' if sig['action'] == 'BUY' else '#ef4444'
+                    signals_html += f"""
+                    <tr>
+                        <td style="font-weight: bold;">{sig['ticker']}</td>
+                        <td style="color: {action_color}; font-weight: bold;">{sig['action']}</td>
+                        <td>{sig['score']:.1f}/10</td>
+                        <td>${sig['price']:.2f}</td>
+                        <td>{sig['reason']}</td>
+                    </tr>
+                    """
+                signals_html += "</tbody></table>"
+            else:
+                signals_html = "<p style='color: #10b981;'>✅ Aucun signal - Toutes les positions dans les objectifs</p>"
+        except Exception as e:
+            signals_html = f"<p style='color: #ef4444;'>Erreur d'analyse: {str(e)}</p>"
+        
+    except Exception as e:
+        return f"<html><body><h1>Erreur</h1><p>{str(e)}</p></body></html>"
+    
+    return f"""
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <title>Live Trading 🔴</title>
+        {COMMON_HEAD}
+        <meta http-equiv="refresh" content="300">
+        <style>
+            .status-indicator {{
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: #10b981;
+                animation: pulse 2s infinite;
+                margin-right: 8px;
+            }}
+            @keyframes pulse {{
+                0%, 100% {{ opacity: 1; }}
+                50% {{ opacity: 0.5; }}
+            }}
+            .warning-box {{
+                background: #78350f20;
+                border: 2px solid #f59e0b;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 20px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1><span class="status-indicator"></span>🔴 Live Trading</h1>
+                <p>Paper Trading en Temps Réel</p>
+            </header>
+            {generate_nav('live')}
+            
+            <div class="warning-box">
+                <strong>⚠️ Mode Paper Trading</strong> - Argent virtuel uniquement. Aucune transaction réelle.
+            </div>
+            
+            <div class="card">
+                <div class="card-header">Portfolio Status</div>
+                <div class="metric-grid">
+                    <div class="metric">
+                        <div class="metric-label">💰 Cash</div>
+                        <div class="metric-value">${state['cash']:,.2f}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">📊 Valeur Totale</div>
+                        <div class="metric-value">${state['total_value']:,.2f}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">📈 P&L</div>
+                        <div class="metric-value {'positive' if pnl >= 0 else 'negative'}">${pnl:+,.2f}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Rendement</div>
+                        <div class="metric-value {'positive' if pnl_pct >= 0 else 'negative'}">{pnl_pct:+.2f}%</div>
+                    </div>
+                </div>
+                <p style="margin-top: 15px; font-size: 0.9em; color: #94a3b8;">
+                    🕐 Dernière mise à jour: {datetime.fromisoformat(state['last_updated']).strftime('%Y-%m-%d %H:%M:%S')}
+                    <br>Auto-refresh toutes les 5 minutes
+                </p>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">📍 Positions Ouvertes ({len(state['positions'])})</div>
+                {positions_html}
+            </div>
+            
+            <div class="card">
+                <div class="card-header">🚨 Signaux Actuels</div>
+                {signals_html}
+                <div style="margin-top: 20px;">
+                    <form method="post" action="/live/execute" style="display: inline;">
+                        <button type="submit" class="btn-primary">⚡ Exécuter les Signaux</button>
+                    </form>
+                    <button onclick="location.reload()" class="btn-secondary" style="margin-left: 10px;">🔄 Rafraîchir</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">📜 Historique des Trades (10 derniers)</div>
+                {trades_html}
+            </div>
+            
+            <div class="card">
+                <div class="card-header">⚙️ Actions Rapides</div>
+                <div class="input-group">
+                    <form method="post" action="/live/reset" onsubmit="return confirm('⚠️ Reset le portfolio à $10,000 ?')" style="display: inline;">
+                        <button type="submit" class="btn-secondary">🔄 Reset Portfolio</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.post("/live/execute")
+async def execute_live_signals():
+    """Execute current signals"""
+    try:
+        from live_monitor import LiveMonitor
+        
+        with open('../config.json', 'r') as f:
+            config = json.load(f)
+        watchlist = config['watchlist']
+        
+        monitor = LiveMonitor()
+        monitor.update_positions_prices(watchlist)
+        signals = monitor.analyze_market(watchlist)
+        
+        results = []
+        for signal in signals:
+            result = monitor.execute_signal(signal)
+            results.append(result)
+        
+        monitor.calculate_total_value()
+        
+        return RedirectResponse(url='/live', status_code=303)
+    except Exception as e:
+        return HTMLResponse(f"<html><body><h1>Erreur</h1><p>{str(e)}</p><a href='/live'>Retour</a></body></html>")
+
+@app.post("/live/reset")
+async def reset_live_portfolio():
+    """Reset live portfolio"""
+    try:
+        import os
+        from live_monitor import LiveMonitor
+        
+        monitor = LiveMonitor()
+        if os.path.exists(monitor.db_path):
+            os.remove(monitor.db_path)
+        
+        # Recreate empty portfolio
+        monitor = LiveMonitor()
+        
+        return RedirectResponse(url='/live', status_code=303)
+    except Exception as e:
+        return HTMLResponse(f"<html><body><h1>Erreur</h1><p>{str(e)}</p><a href='/live'>Retour</a></body></html>")
 
 def main():
     import argparse
