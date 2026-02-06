@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "skills": {
+    "homeassistant": {
+      "version": "1.0.0",
+      "installedAt": 1770116559263
+    },
+    "gmail": {
+      "version": "1.0.0",
+      "installedAt": 1770117134203
+    },
+    "imap-email": {
+      "version": "1.0.2",
+      "installedAt": 1770117330462
+    },
+    "smtp-send": {
+      "version": "1.0.0",
+      "installedAt": 1770118275892
+    }
+  }
+}

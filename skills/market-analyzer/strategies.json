@@ -1,0 +1,67 @@
+{
+  "Conservative": {
+    "description": "Stratégie prudente avec sélection stricte",
+    "buy_threshold": 7.0,
+    "sell_threshold": 4.0,
+    "weights": {
+      "technical": 0.3,
+      "fundamental": 0.5,
+      "sentiment": 0.2
+    },
+    "position_size": 0.15,
+    "stop_loss": 0.05,
+    "take_profit": 0.10
+  },
+  "Balanced": {
+    "description": "Équilibre entre risque et rendement - OPTIMISÉ",
+    "buy_threshold": 5.3,
+    "sell_threshold": 4.3,
+    "weights": {
+      "technical": 0.4,
+      "fundamental": 0.4,
+      "sentiment": 0.2
+    },
+    "position_size": 0.20,
+    "stop_loss": 0.05,
+    "take_profit": 0.18
+  },
+  "Aggressive": {
+    "description": "Plus de trades, plus de risque",
+    "buy_threshold": 5.5,
+    "sell_threshold": 5.0,
+    "weights": {
+      "technical": 0.6,
+      "fundamental": 0.3,
+      "sentiment": 0.1
+    },
+    "position_size": 0.25,
+    "stop_loss": 0.07,
+    "take_profit": 0.20
+  },
+  "Momentum": {
+    "description": "Focus sur la tendance technique",
+    "buy_threshold": 6.5,
+    "sell_threshold": 4.0,
+    "weights": {
+      "technical": 0.7,
+      "fundamental": 0.2,
+      "sentiment": 0.1
+    },
+    "position_size": 0.20,
+    "stop_loss": 0.04,
+    "take_profit": 0.12
+  },
+  "Value": {
+    "description": "Basé sur les fondamentaux",
+    "buy_threshold": 6.5,
+    "sell_threshold": 4.5,
+    "weights": {
+      "technical": 0.2,
+      "fundamental": 0.6,
+      "sentiment": 0.2
+    },
+    "position_size": 0.20,
+    "stop_loss": 0.06,
+    "take_profit": 0.18
+  }
+}

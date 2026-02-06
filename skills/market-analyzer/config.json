@@ -1,0 +1,23 @@
+{
+  "watchlist": ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "AMZN", "META"],
+  "thresholds": {
+    "buy": 5.3,
+    "sell": 4.3
+  },
+  "telegram": {
+    "enabled": true,
+    "daily_summary_time": "08:00",
+    "alert_threshold": 6.0
+  },
+  "backtest": {
+    "initial_capital": 10000,
+    "position_size": 0.2,
+    "stop_loss": 0.05,
+    "take_profit": 0.15
+  },
+  "weights": {
+    "technical": 0.4,
+    "fundamental": 0.4,
+    "sentiment": 0.2
+  }
+}
