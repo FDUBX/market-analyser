@@ -441,6 +441,9 @@ async def simulator_page():
                     <a href="/simulator/{portfolio_id}">
                         <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; margin-left: 5px;">📊 Voir</button>
                     </a>
+                    <form method="post" action="/simulator/delete/{portfolio_id}" style="display: inline; margin: 0; padding: 0; margin-left: 5px;" onsubmit="return confirm('Supprimer ce portfolio ?');">
+                        <button type="submit" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em; background: #ef4444;">🗑️</button>
+                    </form>
                 </td>
             </tr>
             """
@@ -462,7 +465,12 @@ async def simulator_page():
             </header>
             {generate_nav('simulator')}
             <div class="card">
-                <div class="card-header">📋 Mes portfolios</div>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>📋 Mes portfolios</span>
+                    <form method="post" action="/simulator/delete-all" style="margin: 0;" onsubmit="return confirm('Supprimer TOUS les portfolios ? Cette action est irréversible.');">
+                        <button type="submit" class="btn-secondary" style="padding: 8px 16px; font-size: 0.9em; background: #ef4444;">🗑️ Supprimer tout</button>
+                    </form>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -491,6 +499,60 @@ async def run_simulation(portfolio_id: int = Form(...)):
     """Run portfolio simulation"""
     result = simulator.run_simulation(portfolio_id)
     return RedirectResponse(url=f'/simulator/{portfolio_id}', status_code=303)
+
+@app.post("/simulator/delete/{portfolio_id}")
+async def delete_portfolio(portfolio_id: int):
+    """Delete a single portfolio"""
+    import sqlite3
+    
+    conn = sqlite3.connect(simulator.db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Delete trades first (foreign key)
+        cursor.execute('DELETE FROM trades_log WHERE portfolio_id = ?', (portfolio_id,))
+        
+        # Delete positions
+        cursor.execute('DELETE FROM positions WHERE portfolio_id = ?', (portfolio_id,))
+        
+        # Delete snapshots
+        cursor.execute('DELETE FROM snapshots WHERE portfolio_id = ?', (portfolio_id,))
+        
+        # Delete portfolio
+        cursor.execute('DELETE FROM portfolios WHERE id = ?', (portfolio_id,))
+        
+        conn.commit()
+    finally:
+        conn.close()
+    
+    return RedirectResponse(url='/simulator', status_code=303)
+
+@app.post("/simulator/delete-all")
+async def delete_all_portfolios():
+    """Delete all portfolios"""
+    import sqlite3
+    
+    conn = sqlite3.connect(simulator.db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Delete all trades
+        cursor.execute('DELETE FROM trades_log')
+        
+        # Delete all positions
+        cursor.execute('DELETE FROM positions')
+        
+        # Delete all snapshots
+        cursor.execute('DELETE FROM snapshots')
+        
+        # Delete all portfolios
+        cursor.execute('DELETE FROM portfolios')
+        
+        conn.commit()
+    finally:
+        conn.close()
+    
+    return RedirectResponse(url='/simulator', status_code=303)
 
 @app.get("/simulator/{portfolio_id}", response_class=HTMLResponse)
 async def portfolio_details(portfolio_id: int):
