@@ -1,0 +1,26 @@
+# Secrets et credentials
+.env
+*.env
+**/node_modules/
+__pycache__/
+*.pyc
+
+# Bases de données (contiennent peut-être des données sensibles)
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Workspace spécifique
+BOOTSTRAP.md
