@@ -96,17 +96,117 @@ async def root():
             {generate_nav('analyzer')}
             <div class="card">
                 <div class="card-header">Analyse d'actions</div>
-                <form method="post" action="/api/analyze">
+                <form method="post" action="/analyze">
                     <div class="input-group">
                         <input type="text" name="ticker" placeholder="Ticker (AAPL, MSFT...)" required />
                         <button type="submit" class="btn-primary">Analyser</button>
                     </div>
                 </form>
+                <div id="result"></div>
             </div>
         </div>
     </body>
     </html>
     """
+
+@app.post("/analyze")
+async def analyze_stock(ticker: str = Form(...)):
+    """Analyze a stock and display results"""
+    try:
+        result = analyzer.analyze_stock(ticker.upper())
+        
+        score = result['scores']['total']
+        signal = result['signal']
+        signal_color = '#10b981' if signal == 'BUY' else '#ef4444' if signal == 'SELL' else '#94a3b8'
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+            <title>{ticker.upper()} - Analyse</title>
+            {COMMON_HEAD}
+        </head>
+        <body>
+            <div class="container">
+                <header>
+                    <h1>📊 {ticker.upper()} - ${result.get('price', 'N/A')}</h1>
+                    <p>Analyse complète</p>
+                </header>
+                {generate_nav('analyzer')}
+                
+                <div class="card">
+                    <div class="card-header">Score Global</div>
+                    <div class="metric-grid">
+                        <div class="metric">
+                            <div class="metric-label">Score Total</div>
+                            <div class="metric-value">{score:.2f}/10</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Signal</div>
+                            <div class="metric-value" style="color: {signal_color};">{signal}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Technique</div>
+                            <div class="metric-value">{result['scores']['technical']:.2f}/10</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Fondamental</div>
+                            <div class="metric-value">{result['scores']['fundamental']:.2f}/10</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Sentiment</div>
+                            <div class="metric-value">{result['scores']['sentiment']:.2f}/10</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">Indicateurs Clés</div>
+                    <table>
+                        <tr><th>Indicateur</th><th>Valeur</th></tr>
+                        <tr><td>RSI</td><td>{result.get('indicators', {}).get('rsi', 'N/A')}</td></tr>
+                        <tr><td>P/E Ratio</td><td>{result.get('indicators', {}).get('pe_ratio', 'N/A')}</td></tr>
+                        <tr><td>P/B Ratio</td><td>{result.get('indicators', {}).get('pb_ratio', 'N/A')}</td></tr>
+                        <tr><td>Profit Margin</td><td>{result.get('indicators', {}).get('profit_margin', 'N/A')}</td></tr>
+                        <tr><td>Revenue Growth</td><td>{result.get('indicators', {}).get('revenue_growth', 'N/A')}</td></tr>
+                    </table>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="/"><button class="btn-secondary">← Nouvelle analyse</button></a>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return HTMLResponse(html)
+        
+    except Exception as e:
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+            <title>Erreur</title>
+            {COMMON_HEAD}
+        </head>
+        <body>
+            <div class="container">
+                <header>
+                    <h1>❌ Erreur</h1>
+                </header>
+                {generate_nav('analyzer')}
+                <div class="card">
+                    <div class="card-header">Erreur d'analyse</div>
+                    <p style="color: #ef4444;">Impossible d'analyser {ticker.upper()}: {str(e)}</p>
+                    <div style="margin-top: 20px;">
+                        <a href="/"><button class="btn-primary">← Retour</button></a>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """)
 
 @app.get("/strategies", response_class=HTMLResponse)
 async def strategies_page():
@@ -116,7 +216,10 @@ async def strategies_page():
     for name, config in STRATEGIES.items():
         strategies_html += f"""
         <div class="strategy-card">
-            <h3 style="margin-bottom: 10px;">{name}</h3>
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <h3 style="margin: 0;">{name}</h3>
+                <a href="/strategies/edit/{name}"><button class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em;">✏️ Éditer</button></a>
+            </div>
             <p style="color: #94a3b8; margin-bottom: 15px;">{config['description']}</p>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.9em;">
                 <div><strong>BUY:</strong> {config['buy_threshold']}</div>
@@ -166,6 +269,130 @@ async def strategies_page():
     </body>
     </html>
     """
+
+@app.get("/strategies/edit/{strategy_name}", response_class=HTMLResponse)
+async def edit_strategy(strategy_name: str):
+    """Edit strategy page"""
+    if strategy_name not in STRATEGIES:
+        return RedirectResponse(url='/strategies', status_code=303)
+    
+    config = STRATEGIES[strategy_name]
+    
+    return f"""
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <title>Éditer {strategy_name}</title>
+        {COMMON_HEAD}
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>✏️ Éditer: {strategy_name}</h1>
+                <p>Modifier les paramètres de la stratégie</p>
+            </header>
+            {generate_nav('strategies')}
+            
+            <div class="card">
+                <div class="card-header">Paramètres</div>
+                <form method="post" action="/strategies/save/{strategy_name}">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Description</label>
+                        <input type="text" name="description" value="{config['description']}" required style="width: 100%;" />
+                    </div>
+                    
+                    <div class="card-header" style="font-size: 1.2em; margin-top: 30px;">Seuils</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">BUY Threshold</label>
+                            <input type="number" name="buy_threshold" value="{config['buy_threshold']}" step="0.1" min="0" max="10" required />
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">SELL Threshold</label>
+                            <input type="number" name="sell_threshold" value="{config['sell_threshold']}" step="0.1" min="0" max="10" required />
+                        </div>
+                    </div>
+                    
+                    <div class="card-header" style="font-size: 1.2em; margin-top: 30px;">Gestion du Risque</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Position Size (%)</label>
+                            <input type="number" name="position_size" value="{config['position_size']*100}" step="1" min="1" max="100" required />
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Stop-loss (%)</label>
+                            <input type="number" name="stop_loss" value="{config['stop_loss']*100}" step="1" min="1" max="20" required />
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Take-profit (%)</label>
+                            <input type="number" name="take_profit" value="{config['take_profit']*100}" step="1" min="1" max="50" required />
+                        </div>
+                    </div>
+                    
+                    <div class="card-header" style="font-size: 1.2em; margin-top: 30px;">Pondérations</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Technique (%)</label>
+                            <input type="number" name="weight_technical" value="{config['weights']['technical']*100}" step="1" min="0" max="100" required />
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Fondamental (%)</label>
+                            <input type="number" name="weight_fundamental" value="{config['weights']['fundamental']*100}" step="1" min="0" max="100" required />
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #94a3b8;">Sentiment (%)</label>
+                            <input type="number" name="weight_sentiment" value="{config['weights']['sentiment']*100}" step="1" min="0" max="100" required />
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 30px; display: flex; gap: 10px; justify-content: center;">
+                        <button type="submit" class="btn-success">💾 Sauvegarder</button>
+                        <a href="/strategies"><button type="button" class="btn-secondary">← Annuler</button></a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.post("/strategies/save/{strategy_name}")
+async def save_strategy(
+    strategy_name: str,
+    description: str = Form(...),
+    buy_threshold: float = Form(...),
+    sell_threshold: float = Form(...),
+    position_size: float = Form(...),
+    stop_loss: float = Form(...),
+    take_profit: float = Form(...),
+    weight_technical: float = Form(...),
+    weight_fundamental: float = Form(...),
+    weight_sentiment: float = Form(...)
+):
+    """Save strategy modifications"""
+    
+    # Update strategy in memory
+    STRATEGIES[strategy_name] = {
+        'description': description,
+        'buy_threshold': buy_threshold,
+        'sell_threshold': sell_threshold,
+        'position_size': position_size / 100,
+        'stop_loss': stop_loss / 100,
+        'take_profit': take_profit / 100,
+        'weights': {
+            'technical': weight_technical / 100,
+            'fundamental': weight_fundamental / 100,
+            'sentiment': weight_sentiment / 100
+        }
+    }
+    
+    # Save to file
+    import os
+    strategies_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'strategies.json')
+    with open(strategies_path, 'w') as f:
+        json.dump(STRATEGIES, f, indent=2)
+    
+    return RedirectResponse(url='/strategies', status_code=303)
 
 @app.post("/simulator/create-with-strategy")
 async def create_with_strategy(
