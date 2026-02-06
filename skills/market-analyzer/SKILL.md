@@ -1,229 +1,333 @@
+# Market Analyzer Skill
+
+**Version:** 2.1  
+**Dernière mise à jour:** 2026-02-07
+
 ---
-name: market-analyzer
-description: Analyze financial markets using technical indicators, fundamental data, and market sentiment to identify buy/sell opportunities for swing and medium-long term trading. Use when analyzing stocks, generating trading signals, backtesting strategies, or monitoring portfolio performance.
+
+## Vue d'Ensemble
+
+Système complet d'analyse de marché avec :
+- **Backtesting** : Test de stratégies sur données historiques
+- **Paper Trading** : Simulation en temps réel
+- **Dashboard Web** : Interface de gestion
+- **Alertes Telegram** : Notifications automatiques
+
 ---
 
-# Market Analyzer
+## Commandes Principales
 
-Multi-dimensional stock market analysis combining technical indicators, fundamental analysis, and market sentiment to generate actionable trading signals for swing and medium-long term investment strategies.
-
-## Quick Start
-
-**Analyze a stock:**
-```bash
-python3 scripts/analyzer.py analyze AAPL
-```
-
-**Run backtest:**
-```bash
-python3 scripts/backtest.py AAPL --period 2y
-```
-
-**Start dashboard:**
-```bash
-python3 scripts/dashboard.py
-```
-
-## Components
-
-### 1. Technical Analysis
-- RSI (Relative Strength Index)
-- MACD (Moving Average Convergence Divergence)
-- Bollinger Bands
-- Volume analysis
-- Support/Resistance levels
-- Trend analysis (SMA 50/200)
-
-### 2. Fundamental Analysis
-- P/E ratio (Price to Earnings)
-- P/B ratio (Price to Book)
-- Debt/Equity ratio
-- Profit margins
-- Revenue growth
-- Free cash flow
-
-### 3. Market Sentiment
-- News sentiment analysis
-- Price momentum
-- Volume trends
-
-## Scoring System
-
-Each stock receives a score from 0-10:
-- **0-3**: Sell signal (bearish)
-- **3-7**: Hold/Watch (neutral)
-- **7-10**: Buy signal (bullish)
-
-Score composition:
-- Technical indicators: 40%
-- Fundamental metrics: 40%
-- Market sentiment: 20%
-
-## Scripts
-
-### analyzer.py
-Main analysis engine. Fetches data, calculates indicators, and generates scores.
+### 1. Analyse de Marché
 
 ```bash
-# Analyze single stock
-python3 scripts/analyzer.py analyze AAPL
-
-# Analyze multiple stocks
-python3 scripts/analyzer.py analyze AAPL MSFT GOOGL --output json
-
-# Watch list (continuous monitoring)
-python3 scripts/analyzer.py watch AAPL MSFT --interval 5m
+cd $SKILL_DIR
+python3 scripts/analyzer.py AAPL
 ```
 
-### backtest.py
-Test strategy performance on historical data.
+Analyse un ticker et retourne :
+- Score technique (RSI, MACD, Bollinger, Volume, SMA, ADX, Williams %R, OBV)
+- Score fondamental (P/E, croissance, marges)
+- Score sentiment (volume, momentum)
+- Signal BUY/SELL/HOLD
+
+### 2. Backtesting
 
 ```bash
-# Backtest single stock
-python3 scripts/backtest.py AAPL --period 2y
-
-# Backtest portfolio
-python3 scripts/backtest.py AAPL MSFT GOOGL --period 1y --capital 10000
+python3 scripts/backtest.py --ticker AAPL --period 2y
 ```
 
-### dashboard.py
-Web interface for monitoring and analysis.
+Teste la stratégie sur historique :
+- Performance (%)
+- Nombre de trades
+- Win rate
+- Drawdown maximum
+
+### 3. Paper Trading Live
 
 ```bash
-# Start dashboard (localhost:8080)
-python3 scripts/dashboard.py
-
-# Custom port
-python3 scripts/dashboard.py --port 8000
+./live_trade status    # Portfolio actuel
+./live_trade analyze   # Signaux du jour
+./live_trade trade     # Exécuter les trades (paper)
 ```
 
-Access at: `http://localhost:8080` or `https://192.168.1.64:18789/market-analyzer`
-
-### telegram_bot.py
-Telegram notifications and commands.
+### 4. Dashboard
 
 ```bash
-# Start bot
-python3 scripts/telegram_bot.py
-
-# Send daily summary
-python3 scripts/telegram_bot.py --daily-summary
+python3 scripts/dashboard_advanced.py
 ```
 
-**Telegram commands:**
-- `/watch AAPL` - Add stock to watchlist
-- `/unwatch AAPL` - Remove from watchlist
-- `/portfolio` - View current portfolio
-- `/analyze AAPL` - Get detailed analysis
-- `/top` - Show top opportunities
+Interface web sur http://192.168.1.64:8080
 
-### portfolio_sim.py
-Portfolio simulation engine - test strategies with virtual capital.
-
-```bash
-# Create new portfolio simulation
-python3 scripts/portfolio_sim.py create --name "Test 2024" --capital 10000 --start 2024-01-01
-
-# Run simulation (historical replay)
-python3 scripts/portfolio_sim.py run --id 1 --end 2024-12-31
-
-# Check portfolio status
-python3 scripts/portfolio_sim.py status --id 1
-
-# List all portfolios
-python3 scripts/portfolio_sim.py list
-```
-
-**Features:**
-- Historical replay (backtest with realistic execution)
-- Forward-looking simulation (paper trading)
-- Automatic position management (entries/exits)
-- Daily snapshots and performance tracking
-- Multiple portfolio support
+---
 
 ## Configuration
 
-Create `config.json` in skill directory:
+**Fichier:** `config.json`
 
 ```json
 {
-  "watchlist": ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA"],
+  "watchlist": ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "AMZN", "META"],
   "thresholds": {
-    "buy": 7.5,
-    "sell": 3.0
-  },
-  "telegram": {
-    "enabled": true,
-    "daily_summary_time": "08:00",
-    "alert_threshold": 7.5
+    "buy": 5.5,
+    "sell": 4.5
   },
   "backtest": {
     "initial_capital": 10000,
     "position_size": 0.2,
     "stop_loss": 0.05,
-    "take_profit": 0.15
+    "take_profit": 0.18
   }
 }
 ```
 
-## Dependencies
+**Version actuelle (v2.1) :**
+- BUY threshold: 5.5
+- SELL threshold: 4.5
+- Performance validée: +33.27% moyenne sur 3 ans
 
-```bash
-pip install yfinance pandas numpy fastapi uvicorn python-telegram-bot requests beautifulsoup4
+---
+
+## Intégration OpenClaw
+
+### Analyse via Chat
+
+**User:** "Analyse AAPL"
+
+**Agent:**
+```javascript
+exec(`cd /home/pi/.openclaw/workspace/skills/market-analyzer && python3 scripts/analyzer.py AAPL`)
 ```
 
-## Data Cache System
+### Alerts Telegram
 
-To avoid Yahoo Finance rate limits, the analyzer uses a local SQLite cache.
+**User:** "Envoie-moi les signaux du jour"
 
-**Preload data before running simulations:**
+**Agent:**
+```javascript
+// 1. Analyser le marché
+const signals = exec(`cd /home/pi/.openclaw/workspace/skills/market-analyzer && ./live_trade analyze`)
 
-```bash
-# Preload last 2 years of data for default stocks
-bash scripts/preload_data.sh
-
-# Custom date range
-bash scripts/preload_data.sh 2024-01-01 2024-12-31
-
-# Custom tickers
-bash scripts/preload_data.sh 2024-01-01 2024-12-31 "AAPL MSFT TSLA"
+// 2. Envoyer via message tool si signaux détectés
+if (signals.includes('Signal(s) Found')) {
+  message.send({
+    channel: 'telegram',
+    target: '6812190723',
+    message: signals
+  })
+}
 ```
 
-**Cache management:**
+### Cron Job pour Monitoring Quotidien
 
-```bash
-# View cache statistics
-python3 scripts/data_cache.py stats
+**HEARTBEAT.md** pourrait inclure :
 
-# Clear cache for specific ticker
-python3 scripts/data_cache.py clear --ticker AAPL
+```markdown
+## Market Check (once per day, weekdays only)
 
-# Clear all cache
-python3 scripts/data_cache.py clear
+- Check if today is Mon-Fri
+- If between 15:30-16:00 (NYSE opening in GMT+1):
+  - Run: `/home/pi/.openclaw/workspace/skills/market-analyzer/live_trade analyze`
+  - If signals found, notify via Telegram
 ```
 
-**Benefits:**
-- Avoid rate limits (1 request per ticker instead of 250+)
-- 10x faster simulations
-- Offline mode possible
-- Data shared across all tools
+---
 
-## Workflow Examples
+## Structure des Fichiers
 
-**Daily morning routine:**
-1. Receive Telegram summary of top opportunities
-2. Check dashboard for detailed analysis
-3. Review backtesting results
-4. Make informed decisions
+```
+market-analyzer/
+├── config.json              # Configuration principale
+├── strategies.json          # Stratégies prédéfinies
+├── SKILL.md                 # Ce fichier
+├── LIVE_TRADING.md         # Guide du paper trading
+├── OPTIMIZATION_RESULTS.md # Résultats backtests
+├── live_trade              # Commande CLI principale
+├── scripts/
+│   ├── analyzer.py         # Moteur d'analyse (v2.1)
+│   ├── portfolio_sim.py    # Simulateur de portfolio
+│   ├── data_cache.py       # Cache SQLite
+│   ├── live_monitor.py     # Paper trading live
+│   ├── telegram_alerts.py  # Formattage Telegram
+│   ├── dashboard_advanced.py # Interface web
+│   └── ...
+└── logs/
+    └── live.log            # Logs du live trading
+```
 
-**Adding new stock:**
-1. Run `/watch TICKER` in Telegram
-2. System analyzes immediately
-3. Get alert if score > threshold
-4. Review on dashboard
+---
 
-**Strategy validation:**
-1. Run backtest on historical data
-2. Review win rate and returns
-3. Adjust scoring weights if needed
-4. Re-test and iterate
+## Base de Données
+
+### `data_cache.db`
+- **prices** : Cours historiques (OHLCV)
+- **info** : Métadonnées des tickers
+- **Performance :** Cache ~3500 jours de données
+
+### `portfolio_sim.db`
+- **portfolios** : Backtests sauvegardés
+- **positions** : Positions ouvertes
+- **trades_log** : Historique complet
+
+### `live_portfolio.db`
+- **portfolio** : État du paper trading
+- **positions** : Positions live actuelles
+- **trades** : Historique live
+- **signals** : Log des signaux
+
+---
+
+## API OpenClaw
+
+### Analyser un Ticker
+
+```javascript
+const result = await exec({
+  command: 'python3 scripts/analyzer.py AAPL',
+  workdir: '/home/pi/.openclaw/workspace/skills/market-analyzer'
+})
+
+// Parse JSON output
+const analysis = JSON.parse(result.stdout)
+console.log(`Score: ${analysis.scores.total}`)
+console.log(`Signal: ${analysis.signal}`)
+```
+
+### Envoyer Alerte Formatée
+
+```javascript
+const signal = {
+  ticker: 'NVDA',
+  action: 'BUY',
+  score: 6.2,
+  price: 171.88
+}
+
+const message = `🟢 SIGNAL ${signal.action}
+
+📊 ${signal.ticker} @ $${signal.price}
+⭐ Score: ${signal.score}/10`
+
+await message_send({
+  channel: 'telegram',
+  target: '6812190723',
+  message: message
+})
+```
+
+---
+
+## Performance
+
+**v2.1 Validated (2023-2025) :**
+- 2023: +52.29% (72 trades)
+- 2024: +33.57% (68 trades)
+- 2025: +13.93% (88 trades)
+- **Moyenne : +33.27%/an**
+
+**Comparé à v2.0 :**
+- +0.65% de performance
+- -39% de trades (moins de bruit)
+
+---
+
+## Exemples d'Usage
+
+### 1. Check Quotidien Automatisé
+
+Ajouter à `HEARTBEAT.md` :
+
+```markdown
+## Daily Market Check (weekdays 15:30 GMT+1)
+
+- Run market analyzer
+- If BUY/SELL signals → notify on Telegram
+- Update paper trading portfolio
+```
+
+### 2. Alerte Manuelle
+
+**User:** "Analyse le marché maintenant"
+
+**Agent exécute:**
+```bash
+cd /home/pi/.openclaw/workspace/skills/market-analyzer
+./live_trade analyze
+```
+
+**Si signaux détectés**, envoie via Telegram.
+
+### 3. Review Hebdomadaire
+
+**User:** "Comment va mon portfolio paper trading ?"
+
+**Agent exécute:**
+```bash
+./live_trade status
+```
+
+**Puis formate** la réponse de manière lisible.
+
+---
+
+## Dépendances
+
+**Python packages** (voir `requirements.txt`) :
+- yfinance
+- pandas
+- numpy
+- flask (dashboard)
+- matplotlib (graphiques)
+
+**Installation :**
+```bash
+cd scripts
+bash install_deps.sh
+```
+
+---
+
+## Troubleshooting
+
+### Rate Limits Yahoo Finance
+
+**Solution :** Le cache (`data_cache.db`) évite 99% des appels API.  
+Si besoin, pré-télécharger :
+
+```bash
+python3 scripts/data_cache.py --preload --tickers AAPL,MSFT,GOOGL --days 500
+```
+
+### Database Locked
+
+**Cause :** Deux process simultanés  
+**Solution :** Tuer les process ou attendre fin de l'autre
+
+### "No data for ticker"
+
+**Cause :** Marché fermé ou ticker invalide  
+**Solution :** Vérifier watchlist, attendre ouverture NYSE
+
+---
+
+## Notes de Version
+
+### v2.1 (2026-02-07)
+- ✅ Optimisation seuils : 5.5/4.5
+- ✅ Paper trading live
+- ✅ Alertes Telegram (en cours)
+- ✅ Performance: +33.27% validée sur 3 ans
+
+### v2.0 (2026-02-06)
+- ✅ 8 indicateurs techniques (vs 5 en v1.0)
+- ✅ Data cache SQLite
+- ✅ Optimisation grid search
+- ✅ Dashboard avancé
+
+### v1.0 (2026-02-02)
+- ✅ Analyse technique de base
+- ✅ Backtesting simple
+- ✅ Dashboard basique
+
+---
+
+🦎 **Pour plus de détails :** Voir `LIVE_TRADING.md`, `OPTIMIZATION_RESULTS.md`, et `README.md`

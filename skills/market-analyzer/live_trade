@@ -1,0 +1,52 @@
+#!/bin/bash
+# Live Trading Command - Quick access to paper trading functions
+
+cd "$(dirname "$0")/scripts"
+
+case "$1" in
+    status|s)
+        python3 live_monitor.py --status
+        ;;
+    analyze|a)
+        python3 live_monitor.py --analyze
+        ;;
+    trade|t)
+        echo "⚡ Analyzing and executing trades..."
+        python3 live_monitor.py --analyze --execute
+        ;;
+    reset|r)
+        read -p "⚠️  Reset portfolio to $10,000? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            python3 live_monitor.py --reset
+        fi
+        ;;
+    alert)
+        # Send signals to Telegram
+        OUTPUT=$(python3 telegram_alerts.py 2>&1)
+        
+        if echo "$OUTPUT" | grep -q "TELEGRAM_MESSAGE:"; then
+            # Extract and display message (will be sent by OpenClaw)
+            echo "$OUTPUT" | awk '/TELEGRAM_MESSAGE:/,/END_TELEGRAM_MESSAGE/' | grep -v "TELEGRAM_MESSAGE:" | grep -v "END_TELEGRAM_MESSAGE"
+        else
+            echo "✅ No signals to alert"
+        fi
+        ;;
+    *)
+        echo "Live Trading - Paper Trading System"
+        echo ""
+        echo "Usage: ./live_trade [command]"
+        echo ""
+        echo "Commands:"
+        echo "  status (s)   - Show portfolio status"
+        echo "  analyze (a)  - Analyze market and show signals"
+        echo "  trade (t)    - Analyze and execute trades"
+        echo "  alert        - Send Telegram alerts for signals"
+        echo "  reset (r)    - Reset portfolio to \$10,000"
+        echo ""
+        echo "Examples:"
+        echo "  ./live_trade status"
+        echo "  ./live_trade analyze"
+        echo "  ./live_trade trade"
+        ;;
+esac
