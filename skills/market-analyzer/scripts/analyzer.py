@@ -85,7 +85,7 @@ class MarketAnalyzer:
             return {"error": str(e), "ticker": ticker}
     
     def _calculate_technical_score(self, hist):
-        """Calculate technical analysis score (0-10)"""
+        """Calculate technical analysis score (0-10) - diversified indicators"""
         scores = []
         
         # RSI (Relative Strength Index)
@@ -95,34 +95,49 @@ class MarketAnalyzer:
         elif rsi > 70:  # Overbought
             scores.append(2)
         else:
-            # Normalize: RSI 30-70 -> Score 4-6
             scores.append(4 + (rsi - 30) / 20)
         
         # MACD
-        macd_signal = self._calculate_macd(hist['Close'])
-        scores.append(macd_signal)
+        scores.append(self._calculate_macd(hist['Close']))
         
         # Bollinger Bands
-        bb_signal = self._calculate_bollinger(hist['Close'])
-        scores.append(bb_signal)
+        scores.append(self._calculate_bollinger(hist['Close']))
         
         # Trend (SMA crossover)
-        trend_signal = self._calculate_trend(hist['Close'])
-        scores.append(trend_signal)
+        scores.append(self._calculate_trend(hist['Close']))
         
         # Volume analysis
-        volume_signal = self._calculate_volume_signal(hist)
-        scores.append(volume_signal)
+        scores.append(self._calculate_volume_signal(hist))
+        
+        # ADX - trend strength (strong trend = clearer signal)
+        adx_score = self._calculate_adx_score(hist)
+        if adx_score is not None:
+            scores.append(adx_score)
+        
+        # Williams %R - momentum (complement to RSI)
+        willr_score = self._calculate_williams_r_score(hist)
+        if willr_score is not None:
+            scores.append(willr_score)
+        
+        # OBV trend - volume confirming price
+        obv_score = self._calculate_obv_score(hist)
+        if obv_score is not None:
+            scores.append(obv_score)
+        
+        # Price position in 52-week range (support/resistance)
+        pos_52w = self._calculate_52w_position_score(hist)
+        if pos_52w is not None:
+            scores.append(pos_52w)
         
         return np.mean(scores)
     
     def _calculate_fundamental_score(self, info):
-        """Calculate fundamental analysis score (0-10)"""
+        """Calculate fundamental analysis score (0-10) - diversified indicators"""
         scores = []
         
-        # P/E Ratio (lower is better, generally)
+        # P/E Ratio
         pe = info.get('trailingPE', None)
-        if pe:
+        if pe and pe > 0:
             if pe < 15:
                 scores.append(8)
             elif pe < 25:
@@ -134,7 +149,7 @@ class MarketAnalyzer:
         
         # P/B Ratio
         pb = info.get('priceToBook', None)
-        if pb:
+        if pb is not None and pb > 0:
             if pb < 1:
                 scores.append(9)
             elif pb < 3:
@@ -146,7 +161,7 @@ class MarketAnalyzer:
         
         # Profit Margin
         margin = info.get('profitMargins', None)
-        if margin:
+        if margin is not None and margin > 0:
             if margin > 0.20:
                 scores.append(8)
             elif margin > 0.10:
@@ -170,7 +185,7 @@ class MarketAnalyzer:
         
         # Revenue Growth
         revenue_growth = info.get('revenueGrowth', None)
-        if revenue_growth:
+        if revenue_growth is not None:
             if revenue_growth > 0.20:
                 scores.append(9)
             elif revenue_growth > 0.10:
@@ -180,29 +195,58 @@ class MarketAnalyzer:
             else:
                 scores.append(3)
         
+        # ROE (Return on Equity)
+        roe_score = self._score_roe(info)
+        if roe_score is not None:
+            scores.append(roe_score)
+        
+        # Free Cash Flow yield (FCF / market cap proxy: positive FCF = good)
+        fcf_score = self._score_fcf(info)
+        if fcf_score is not None:
+            scores.append(fcf_score)
+        
+        # Current Ratio (liquidity)
+        cr_score = self._score_current_ratio(info)
+        if cr_score is not None:
+            scores.append(cr_score)
+        
         return np.mean(scores) if scores else 5.0
     
     def _calculate_sentiment_score(self, hist):
-        """Calculate market sentiment score based on price momentum"""
-        # Simple momentum-based sentiment
-        # In future: integrate news sentiment API
+        """Calculate market sentiment score - diversified (momentum, volume, range, volatility)"""
+        scores = []
         
         # 30-day momentum
         returns_30d = (hist['Close'].iloc[-1] / hist['Close'].iloc[-30] - 1) if len(hist) >= 30 else 0
+        momentum_score = 5 + (returns_30d * 20)
+        momentum_score = max(0, min(10, momentum_score))
+        scores.append(momentum_score)
+        
+        # 5-day momentum (short-term vs 30d = divergence possible)
+        returns_5d = (hist['Close'].iloc[-1] / hist['Close'].iloc[-5] - 1) if len(hist) >= 5 else 0
+        momentum_5d_score = 5 + (returns_5d * 30)
+        momentum_5d_score = max(0, min(10, momentum_5d_score))
+        scores.append(momentum_5d_score)
         
         # Volume trend
         recent_vol = hist['Volume'].iloc[-5:].mean()
         avg_vol = hist['Volume'].mean()
         vol_ratio = recent_vol / avg_vol if avg_vol > 0 else 1
-        
-        # Score calculation
-        momentum_score = 5 + (returns_30d * 20)  # Convert % to score points
-        momentum_score = max(0, min(10, momentum_score))
-        
         volume_score = 5 + ((vol_ratio - 1) * 5)
         volume_score = max(0, min(10, volume_score))
+        scores.append(volume_score)
         
-        return np.mean([momentum_score, volume_score])
+        # 52-week range position (price near high = bullish sentiment)
+        pos = self._score_52w_range_sentiment(hist)
+        if pos is not None:
+            scores.append(pos)
+        
+        # Volatility (low vol = more confidence / less fear; high vol = uncertainty)
+        vol_score = self._score_volatility_sentiment(hist)
+        if vol_score is not None:
+            scores.append(vol_score)
+        
+        return np.mean(scores)
     
     def _calculate_rsi(self, prices, period=14):
         """Calculate RSI indicator"""
@@ -272,6 +316,139 @@ class MarketAnalyzer:
         else:
             return 5  # Normal volume
     
+    def _calculate_adx_score(self, hist, period=14):
+        """ADX (Average Directional Index) - trend strength. Strong trend -> higher score."""
+        if len(hist) < period * 2:
+            return None
+        high, low, close = hist['High'], hist['Low'], hist['Close']
+        plus_dm = high.diff()
+        minus_dm = -low.diff()
+        plus_dm[plus_dm < 0] = 0
+        minus_dm[minus_dm < 0] = 0
+        tr = pd.concat([high - low, abs(high - close.shift(1)), abs(low - close.shift(1))], axis=1).max(axis=1)
+        atr = tr.rolling(period).mean()
+        plus_di = 100 * (plus_dm.rolling(period).mean() / atr)
+        minus_di = 100 * (minus_dm.rolling(period).mean() / atr)
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+        adx = dx.rolling(period).mean().iloc[-1]
+        # ADX 0-25 weak, 25-50 strong, 50+ very strong. Score 0-10: we want strong trend = clearer signal
+        if pd.isna(adx):
+            return None
+        adx_score = 3 + (adx / 50) * 7  # 25 -> ~6.5, 50 -> 10
+        return max(0, min(10, adx_score))
+    
+    def _calculate_williams_r_score(self, hist, period=14):
+        """Williams %R: oversold (< -80) = buy, overbought (> -20) = sell. Complement to RSI."""
+        if len(hist) < period:
+            return None
+        high = hist['High'].rolling(period).max()
+        low = hist['Low'].rolling(period).min()
+        close = hist['Close']
+        willr = -100 * (high - close) / (high - low)
+        willr = willr.replace([np.inf, -np.inf], np.nan).dropna()
+        if willr.empty:
+            return None
+        w = willr.iloc[-1]
+        if w < -80:
+            return 8   # oversold
+        elif w > -20:
+            return 2   # overbought
+        else:
+            return 5 + (w + 50) / 10  # -50 -> 5, linear in between
+    
+    def _calculate_obv_score(self, hist):
+        """On-Balance Volume trend: OBV rising with price = bullish."""
+        if len(hist) < 20:
+            return None
+        close, vol = hist['Close'], hist['Volume']
+        obv = (np.sign(close.diff()) * vol).fillna(0).cumsum()
+        obv_recent = obv.iloc[-5:].mean()
+        obv_older = obv.iloc[-20:-5].mean()
+        price_up = close.iloc[-1] > close.iloc[-5]
+        obv_up = obv_recent > obv_older
+        if price_up and obv_up:
+            return 7
+        elif not price_up and not obv_up:
+            return 3
+        return 5
+    
+    def _calculate_52w_position_score(self, hist):
+        """Price position in 52-week range. Near high = bullish, near low = bearish."""
+        if len(hist) < 20:
+            return None
+        high_52 = hist['High'].iloc[-252:].max() if len(hist) >= 252 else hist['High'].max()
+        low_52 = hist['Low'].iloc[-252:].min() if len(hist) >= 252 else hist['Low'].min()
+        current = hist['Close'].iloc[-1]
+        if high_52 <= low_52:
+            return 5
+        pct = (current - low_52) / (high_52 - low_52)  # 0 = at low, 1 = at high
+        return pct * 8 + 1  # 1-9 scale
+    
+    def _score_roe(self, info):
+        """Return on Equity: higher = better (quality)."""
+        roe = info.get('returnOnEquity', None)
+        if roe is None:
+            return None
+        if roe > 0.20:
+            return 9
+        elif roe > 0.10:
+            return 7
+        elif roe > 0:
+            return 5
+        return 2
+    
+    def _score_fcf(self, info):
+        """Free cash flow: positive = healthy. Uses FCF / revenue proxy if no market cap."""
+        fcf = info.get('freeCashflow')
+        rev = info.get('totalRevenue')
+        if fcf is None:
+            return None
+        if rev and rev > 0:
+            fcf_ratio = fcf / rev
+            if fcf_ratio > 0.15:
+                return 8
+            elif fcf_ratio > 0.05:
+                return 6
+            elif fcf_ratio > 0:
+                return 5
+            return 3
+        return 7 if fcf > 0 else 3
+    
+    def _score_current_ratio(self, info):
+        """Current ratio (liquidity): > 1.5 = healthy."""
+        cr = info.get('currentRatio', None)
+        if cr is None or cr <= 0:
+            return None
+        if cr >= 2:
+            return 8
+        elif cr >= 1.5:
+            return 6
+        elif cr >= 1:
+            return 4
+        return 2
+    
+    def _score_52w_range_sentiment(self, hist):
+        """Sentiment: where price sits in 52w range (same as technical but sentiment angle)."""
+        return self._calculate_52w_position_score(hist)
+    
+    def _score_volatility_sentiment(self, hist, window=20):
+        """Low recent volatility = more confidence; high vol = uncertainty. Inverse vol -> score."""
+        if len(hist) < window:
+            return None
+        ret = hist['Close'].pct_change().iloc[-window:]
+        vol = ret.std()
+        if vol is None or vol == 0 or pd.isna(vol):
+            return 5
+        # Annualized vol proxy: low vol -> high score (e.g. 0.15 -> 6, 0.40 -> 3)
+        vol_annual = vol * (252 ** 0.5)
+        if vol_annual < 0.15:
+            return 8
+        elif vol_annual < 0.25:
+            return 6
+        elif vol_annual < 0.40:
+            return 4
+        return 2
+    
     def _generate_signal(self, score):
         """Generate trading signal based on score"""
         if score >= 7:
@@ -303,16 +480,34 @@ class MarketAnalyzer:
             }
     
     def _get_indicators(self, hist, info):
-        """Get detailed indicator values"""
+        """Get detailed indicator values (technical, fundamental, sentiment)"""
         rsi = self._calculate_rsi(hist['Close'])
+        # Technical
+        high_52 = hist['High'].iloc[-252:].max() if len(hist) >= 252 else hist['High'].max()
+        low_52 = hist['Low'].iloc[-252:].min() if len(hist) >= 252 else hist['Low'].min()
+        close = hist['Close'].iloc[-1]
+        pos_52w = (close - low_52) / (high_52 - low_52) * 100 if high_52 > low_52 else None
+        ret_20 = hist['Close'].pct_change().iloc[-20:]
+        vol_20 = ret_20.std() * (252 ** 0.5) * 100 if len(ret_20) >= 20 else None  # annualized % 
+        willr = None
+        if len(hist) >= 14:
+            h, l, c = hist['High'].rolling(14).max(), hist['Low'].rolling(14).min(), hist['Close']
+            w = -100 * (h - c) / (h - l)
+            willr = round(w.iloc[-1], 2) if not (pd.isna(w.iloc[-1]) or np.isinf(w.iloc[-1])) else None
         
         return {
             "rsi": round(rsi, 2),
+            "williams_r": willr,
+            "52w_position_pct": round(pos_52w, 2) if pos_52w is not None else None,
+            "volatility_20d_annual_pct": round(vol_20, 2) if vol_20 is not None else None,
             "pe_ratio": info.get('trailingPE', None),
             "pb_ratio": info.get('priceToBook', None),
             "profit_margin": round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') else None,
             "debt_to_equity": info.get('debtToEquity', None),
-            "revenue_growth": round(info.get('revenueGrowth', 0) * 100, 2) if info.get('revenueGrowth') else None,
+            "revenue_growth": round(info.get('revenueGrowth', 0) * 100, 2) if info.get('revenueGrowth') is not None else None,
+            "roe_pct": round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else None,
+            "free_cash_flow": info.get('freeCashflow', None),
+            "current_ratio": info.get('currentRatio', None),
             "52w_high": info.get('fiftyTwoWeekHigh', None),
             "52w_low": info.get('fiftyTwoWeekLow', None)
         }

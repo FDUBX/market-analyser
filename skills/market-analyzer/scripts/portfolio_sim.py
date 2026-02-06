@@ -187,6 +187,27 @@ class PortfolioSimulator:
         current_date = start
         trades_made = []
         
+        def get_price_for_date(ticker, d):
+            """Get closing price for ticker on date d. If no data (holiday/weekend), use last known close (forward-fill)."""
+            if USE_CACHE:
+                cache = DataCache()
+                hist = cache.get_cached_data(ticker, d, d + timedelta(days=1))
+                if not hist.empty:
+                    return hist['Close'].iloc[0]
+                _, close = cache.get_last_close_before_or_on(ticker, d)
+                return close
+            else:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(start=d - timedelta(days=10), end=d + timedelta(days=1))
+                if hist.empty:
+                    return None
+                # Last available close on or before d (handles holidays/weekends)
+                cut = pd.Timestamp(d).normalize()
+                on_or_before = hist[hist.index.normalize() <= cut]
+                if on_or_before.empty:
+                    return None
+                return float(on_or_before['Close'].iloc[-1])
+        
         print(f"\n🔄 Running simulation for portfolio '{name}'...")
         print(f"📅 Period: {start_date} → {end_date or 'today'}")
         print(f"💰 Initial capital: ${initial_capital:,.2f}")
@@ -200,17 +221,9 @@ class PortfolioSimulator:
                 pos_id, _, _, entry_date, entry_price, shares, capital_invested, _, _, _, _, _, status = position_data
                 
                 try:
-                    if USE_CACHE:
-                        cache = DataCache()
-                        hist = cache.get_cached_data(ticker, current_date, current_date + timedelta(days=1))
-                    else:
-                        stock = yf.Ticker(ticker)
-                        hist = stock.history(start=current_date, end=current_date + timedelta(days=1))
-                    
-                    if hist.empty:
+                    current_price = get_price_for_date(ticker, current_date)
+                    if current_price is None:
                         continue
-                    
-                    current_price = hist['Close'].iloc[0]
                     pnl_pct = (current_price - entry_price) / entry_price
                     
                     # Check exit conditions
@@ -290,18 +303,10 @@ class PortfolioSimulator:
                         if capital_to_invest < 100:  # Minimum investment
                             continue
                         
-                        # Get current price
-                        if USE_CACHE:
-                            cache = DataCache()
-                            hist = cache.get_cached_data(ticker, current_date, current_date + timedelta(days=1))
-                        else:
-                            stock = yf.Ticker(ticker)
-                            hist = stock.history(start=current_date, end=current_date + timedelta(days=1))
-                        
-                        if hist.empty:
+                        # Get current price (forward-fill if market closed)
+                        current_price = get_price_for_date(ticker, current_date)
+                        if current_price is None:
                             continue
-                        
-                        current_price = hist['Close'].iloc[0]
                         shares = int(capital_to_invest / current_price)
                         
                         if shares == 0:
@@ -343,21 +348,15 @@ class PortfolioSimulator:
                     print(f"⚠️  Error analyzing {ticker}: {e}")
                     continue
             
-            # Calculate daily snapshot
+            # Calculate daily snapshot (use last known close if no data for this date → avoids fake drops on holidays)
             positions_value = 0
             for ticker, position_data in open_positions.items():
                 try:
-                    if USE_CACHE:
-                        cache = DataCache()
-                        hist = cache.get_cached_data(ticker, current_date, current_date + timedelta(days=1))
-                    else:
-                        stock = yf.Ticker(ticker)
-                        hist = stock.history(start=current_date, end=current_date + timedelta(days=1))
-                    if not hist.empty:
-                        current_price = hist['Close'].iloc[0]
+                    current_price = get_price_for_date(ticker, current_date)
+                    if current_price is not None:
                         shares = position_data[5]
                         positions_value += shares * current_price
-                except:
+                except Exception:
                     pass
             
             total_value = cash + positions_value

@@ -40,6 +40,7 @@ Multi-dimensional stock analysis and portfolio simulation with **+21.65% average
 
 ### Quick Start
 
+**Linux / macOS / Git Bash :**
 ```bash
 cd skills/market-analyzer
 
@@ -51,6 +52,22 @@ bash scripts/preload_data.sh
 
 # Launch dashboard
 python3 scripts/dashboard_advanced.py --port 8080
+```
+
+**Windows (PowerShell) :**  
+*(Si `python` ou `pip` ne sont pas reconnus, suis [skills/market-analyzer/WINDOWS_SETUP.md](skills/market-analyzer/WINDOWS_SETUP.md) pour installer Python.)*
+```powershell
+cd skills\market-analyzer
+
+# Install dependencies (depuis ce dossier, où se trouve requirements.txt)
+python -m pip install -r requirements.txt
+
+# Preload data (optionnel, une fois)
+python scripts/data_cache.py preload --tickers AAPL MSFT GOOGL NVDA TSLA AMZN META --start 2024-01-01 --end 2026-02-06
+
+# Launch dashboard (utilise python ou py selon ton installation)
+.\scripts\run_dashboard.ps1
+# ou : python scripts/dashboard_advanced.py --port 8080
 ```
 
 Open http://localhost:8080

@@ -131,10 +131,15 @@ class DataCache:
             )
             
             if df.empty:
-                # Try to fetch from API
-                if self.fetch_and_cache(ticker, start_date, end_date):
-                    # Retry query
-                    df = pd.read_sql_query(query, conn, params=(ticker, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
+                # If we have a last close before/on start_date, likely weekend/holiday → skip API (avoids "No data" spam)
+                last_date, _ = self.get_last_close_before_or_on(ticker, start_date)
+                if last_date is None:
+                    # No data at all, try API
+                    if self.fetch_and_cache(ticker, start_date, end_date):
+                        df = pd.read_sql_query(query, conn, params=(ticker, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
+                else:
+                    # We have history; missing date is probably non-trading day, don't call API
+                    pass
             
             if not df.empty:
                 df['date'] = pd.to_datetime(df['date'])
@@ -143,6 +148,28 @@ class DataCache:
             
             return df
             
+        finally:
+            conn.close()
+    
+    def get_last_close_before_or_on(self, ticker, as_of_date):
+        """
+        Return (date_str, close_price) for the last trading day on or before as_of_date.
+        Used when market is closed (weekend, holiday) to avoid valuing positions at 0.
+        """
+        conn = sqlite3.connect(self.db_path)
+        try:
+            as_str = as_of_date.strftime('%Y-%m-%d') if hasattr(as_of_date, 'strftime') else as_of_date
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT date, close FROM price_history
+                WHERE ticker = ? AND date <= ?
+                ORDER BY date DESC
+                LIMIT 1
+            ''', (ticker, as_str))
+            row = cursor.fetchone()
+            if row:
+                return (row[0], float(row[1]))
+            return (None, None)
         finally:
             conn.close()
     
