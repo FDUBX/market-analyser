@@ -1,10 +1,11 @@
 #!/bin/bash
 # Cron wrapper that triggers agent notification via wake event
+# MODE: Simulation Auto (executes trades automatically)
 
 cd "$(dirname "$0")/.."
 
-# Run analysis
-OUTPUT=$(./live_trade analyze 2>&1)
+# Run analysis + execution (Simulation Auto mode)
+OUTPUT=$(./live_trade trade 2>&1)
 
 # Log the output
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Live trading check" >> logs/live.log
