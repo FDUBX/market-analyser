@@ -262,6 +262,7 @@ async def strategies_page():
                         </select>
                         <input type="number" name="capital" value="10000" min="1000" step="1000" required />
                         <input type="date" name="start_date" value="{datetime.now().strftime('%Y-%m-%d')}" required />
+                        <input type="date" name="end_date" placeholder="Date de fin (optionnelle)" />
                         <button type="submit" class="btn-success">Créer avec stratégie</button>
                     </div>
                 </form>
@@ -400,7 +401,8 @@ async def create_with_strategy(
     name: str = Form(...),
     strategy: str = Form(...),
     capital: float = Form(...),
-    start_date: str = Form(...)
+    start_date: str = Form(...),
+    end_date: str = Form(None)
 ):
     """Create portfolio with predefined strategy"""
     if strategy not in STRATEGIES:
@@ -408,8 +410,12 @@ async def create_with_strategy(
     
     config = STRATEGIES[strategy]
     result = simulator.create_portfolio(name, capital, start_date, config=config)
+    portfolio_id = result['portfolio_id']
     
-    return RedirectResponse(url='/simulator', status_code=303)
+    # Run simulation with end_date if provided
+    simulator.run_simulation(portfolio_id, end_date=end_date if end_date else None)
+    
+    return RedirectResponse(url=f'/simulator/{portfolio_id}', status_code=303)
 
 @app.get("/simulator", response_class=HTMLResponse)
 async def simulator_page():
