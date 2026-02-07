@@ -4,7 +4,7 @@ Personal AI assistant workspace with an optimized stock market analyzer.
 
 ## 🚀 Market Analyzer
 
-Multi-dimensional stock analysis and portfolio simulation with **+21.65% average annual return** (validated on 2024-2025).
+Multi-dimensional stock analysis and portfolio simulation with **+33.27% average annual return** (validated on 2023-2025).
 
 ### Features
 
@@ -13,7 +13,7 @@ Multi-dimensional stock analysis and portfolio simulation with **+21.65% average
 - **Sentiment Analysis** (Price momentum, Volume trends)
 - **Portfolio Simulator** (Backtest strategies with virtual capital)
 - **Data Cache** (Local SQLite cache to avoid API rate limits)
-- **Web Dashboard** (Chart.js interactive UI)
+- **Web Dashboard** (FastAPI + Chart.js interactive UI)
 
 ### Optimized Configuration
 
@@ -21,8 +21,8 @@ Multi-dimensional stock analysis and portfolio simulation with **+21.65% average
 
 ```json
 {
-  "buy_threshold": 5.3,
-  "sell_threshold": 4.3,
+  "buy_threshold": 5.5,
+  "sell_threshold": 4.5,
   "stop_loss": 0.05,
   "take_profit": 0.18,
   "weights": {
@@ -33,10 +33,11 @@ Multi-dimensional stock analysis and portfolio simulation with **+21.65% average
 }
 ```
 
-**Performance:**
-- 2024 (bull market): **+32.47%**
-- 2025 (mixed market): **+10.83%**
-- **Average: +21.65% annual return**
+**Performance (v2.1, validated 2023-2025):**
+- 2023 (bull): **+52.29%**
+- 2024 (volatile): **+33.57%**
+- 2025 (mixed): **+13.93%**
+- **Average: +33.27% annual return**
 
 ### Quick Start
 

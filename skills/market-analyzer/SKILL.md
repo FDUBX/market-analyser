@@ -275,8 +275,8 @@ cd /home/pi/.openclaw/workspace/skills/market-analyzer
 - yfinance
 - pandas
 - numpy
-- flask (dashboard)
-- matplotlib (graphiques)
+- fastapi + uvicorn (dashboard)
+- python-telegram-bot (alertes)
 
 **Installation :**
 ```bash

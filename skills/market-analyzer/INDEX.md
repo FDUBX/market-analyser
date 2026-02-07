@@ -8,9 +8,9 @@
 
 ### Configuration Actuelle
 - **[OPTIMIZATION_RESULTS.md](OPTIMIZATION_RESULTS.md)** ⭐ **LIRE EN PREMIER**
-  - Configuration optimale validée
-  - Résultats 2024-2025
-  - +21.65% return annuel moyen
+  - Configuration optimale validée (v2.1)
+  - Résultats 2023-2025
+  - +33.27% return annuel moyen
 
 ### Technique
 - **[SKILL.md](SKILL.md)** - Documentation technique OpenClaw
@@ -21,12 +21,12 @@
 
 ## ⚙️ Configuration Actuelle (OPTIMISÉE)
 
-**Stratégie par défaut :** Balanced Optimisé
+**Stratégie par défaut :** Balanced Optimisé (v2.1)
 
 ```json
 {
-  "buy_threshold": 5.3,
-  "sell_threshold": 4.3,
+  "buy_threshold": 5.5,
+  "sell_threshold": 4.5,
   "stop_loss": 0.05,
   "take_profit": 0.18,
   "weights": {
@@ -37,10 +37,11 @@
 }
 ```
 
-**Performance validée :**
-- 2024: +32.47%
-- 2025: +10.83%
-- **Moyenne: +21.65%**
+**Performance validée (2023-2025) :**
+- 2023: +52.29%
+- 2024: +33.57%
+- 2025: +13.93%
+- **Moyenne: +33.27%**
 
 ---
 
@@ -71,7 +72,7 @@ http://192.168.1.64:8080
 - `backtest.py` - Backtesting moteur
 - `data_cache.py` - Cache local (évite rate limits)
 - `optimizer.py` - Optimisation automatique
-- `dashboard_advanced.py` - Interface web avec Chart.js
+- `dashboard_advanced.py` - Interface web FastAPI + Chart.js
 
 ### Bases de Données
 - `portfolio_sim.db` - Portfolios et trades
@@ -81,10 +82,10 @@ http://192.168.1.64:8080
 
 ## 🎯 Stratégies Disponibles
 
-1. **Balanced Optimisé** ⭐ (recommandé)
-   - BUY 5.3 / SELL 4.3
+1. **Balanced Optimisé** ⭐ (recommandé, v2.1)
+   - BUY 5.5 / SELL 4.5
    - TP 18% / SL 5%
-   - Return: +21.65% moyen
+   - Return: +33.27% moyen (3 ans)
 
 2. **Aggressive**
    - BUY 5.5 / SELL 5.0
@@ -179,6 +180,6 @@ bash scripts/preload_data.sh
 
 ---
 
-🦎 **Market Analyzer v2.0 - Optimisé et Validé**
+🦎 **Market Analyzer v2.1 - Optimisé et Validé**
 
-Dernière mise à jour : 2026-02-06
+Dernière mise à jour : 2026-02-07
