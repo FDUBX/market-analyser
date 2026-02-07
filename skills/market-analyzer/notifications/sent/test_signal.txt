@@ -1,0 +1,17 @@
+🧪 Test de Notification Automatique
+
+2 signal(s) détecté(s) !
+
+🟢 BUY NVDA
+   Score: 6.2/10
+   Price: $171.88
+   Reason: HIGH_SCORE
+
+🔴 SELL AAPL
+   Score: 4.2/10
+   Price: $275.91
+   P&L: -2.5%
+   Reason: STOP_LOSS
+
+⏰ 2026-02-07 09:59
+🔗 Dashboard: http://192.168.1.64:8080/live

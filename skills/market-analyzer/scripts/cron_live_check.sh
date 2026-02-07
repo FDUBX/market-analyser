@@ -1,8 +1,13 @@
 #!/bin/bash
 # Cron wrapper for live trading checks with Telegram notifications
-# This script is called by cron and sends notifications via OpenClaw
+# This script is called by cron and sends notifications via OpenClaw message tool
 
 cd "$(dirname "$0")/.."
+
+# Gateway configuration
+GATEWAY_URL="http://localhost:18789"
+GATEWAY_TOKEN="d2a8e12b4171c491739729caaa55a94da04e19598b56686a"
+TELEGRAM_USER="6812190723"
 
 # Run analysis
 OUTPUT=$(./live_trade analyze 2>&1)
@@ -17,33 +22,42 @@ if echo "$OUTPUT" | grep -q "Signal(s) Found"; then
     # Extract signal count
     SIGNAL_COUNT=$(echo "$OUTPUT" | grep "Signal(s) Found" | grep -oP '\d+')
     
-    # Format message for Telegram
-    MESSAGE="🚨 **Market Analyzer Alert**
+    # Format message for Telegram (clean format, no markdown issues)
+    MESSAGE="🚨 Market Analyzer Alert
 
-$SIGNAL_COUNT signal(s) détecté(s) !
+${SIGNAL_COUNT} signal(s) détecté(s) !
 
-\`\`\`
 $OUTPUT
-\`\`\`
 
 ⏰ $(date '+%Y-%m-%d %H:%M')
-
 🔗 Dashboard: http://192.168.1.64:8080/live
 "
     
-    # Send via OpenClaw (assuming openclaw CLI is available)
-    # Alternative: Use HTTP API directly
-    curl -s -X POST "http://localhost:18789/api/v1/message/send" \
-        -H "Authorization: Bearer d2a8e12b4171c491739729caaa55a94da04e19598b56686a" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"channel\": \"telegram\",
-            \"target\": \"6812190723\",
-            \"message\": $(echo "$MESSAGE" | jq -Rs .)
-        }" > /dev/null 2>&1
+    # Create JSON payload (escape properly)
+    PAYLOAD=$(cat <<EOF
+{
+  "action": "send",
+  "channel": "telegram",
+  "target": "$TELEGRAM_USER",
+  "message": $(echo "$MESSAGE" | jq -Rs .)
+}
+EOF
+)
     
-    # If curl fails, log it
-    if [ $? -ne 0 ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Failed to send Telegram notification" >> logs/live.log
+    # Send via OpenClaw HTTP API
+    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$GATEWAY_URL/message" \
+        -H "Authorization: Bearer $GATEWAY_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$PAYLOAD")
+    
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Telegram notification sent successfully" >> logs/live.log
+    else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Failed to send Telegram notification (HTTP $HTTP_CODE)" >> logs/live.log
+        echo "$RESPONSE" >> logs/live.log
     fi
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - No signals detected" >> logs/live.log
 fi
