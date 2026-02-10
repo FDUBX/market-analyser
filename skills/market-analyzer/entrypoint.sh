@@ -36,4 +36,6 @@ ln -sf "$DATA_DIR/live_portfolio.db" "$APP_DIR/scripts/live_portfolio.db"
 echo "✅ Data directory ready: $DATA_DIR"
 echo "📍 Starting dashboard on port ${PORT:-8080}..."
 
-exec python3 "$APP_DIR/scripts/dashboard_advanced.py" --host 0.0.0.0 --port "${PORT:-8080}"
+# Run from scripts/ so relative paths (../config.json) resolve to /app/config.json
+cd "$APP_DIR/scripts"
+exec python3 dashboard_advanced.py --host 0.0.0.0 --port "${PORT:-8080}"
