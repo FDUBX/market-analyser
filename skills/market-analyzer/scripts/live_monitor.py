@@ -15,6 +15,8 @@ import json
 from datetime import datetime, timedelta
 import argparse
 
+_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.json')
+
 class LiveMonitor:
     def __init__(self, db_path="live_portfolio.db"):
         self.db_path = db_path
@@ -144,10 +146,10 @@ class LiveMonitor:
         conn.commit()
         conn.close()
     
-    def analyze_market(self, watchlist, config_path="../config.json"):
+    def analyze_market(self, watchlist, config_path=None):
         """Analyze all stocks and generate signals"""
         # Load config
-        with open(config_path, 'r') as f:
+        with open(config_path or _CONFIG_PATH, 'r') as f:
             config = json.load(f)
         
         buy_threshold = config['thresholds']['buy']
@@ -222,10 +224,10 @@ class LiveMonitor:
         
         return signals
     
-    def execute_signal(self, signal, config_path="../config.json"):
+    def execute_signal(self, signal, config_path=None):
         """Execute a trading signal (paper trading)"""
         # Load config
-        with open(config_path, 'r') as f:
+        with open(config_path or _CONFIG_PATH, 'r') as f:
             config = json.load(f)
         
         position_size = config['backtest']['position_size']
@@ -348,7 +350,7 @@ def main():
     monitor = LiveMonitor()
     
     # Load watchlist
-    with open('../config.json', 'r') as f:
+    with open(_CONFIG_PATH, 'r') as f:
         config = json.load(f)
     watchlist = config['watchlist']
     

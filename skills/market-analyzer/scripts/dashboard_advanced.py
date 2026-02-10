@@ -707,7 +707,7 @@ async def live_trading():
         import sqlite3
         
         # Load config
-        with open('../config.json', 'r') as f:
+        with open(CONFIG_PATH, 'r') as f:
             config = json.load(f)
         watchlist = config['watchlist']
         
@@ -914,7 +914,7 @@ async def execute_live_signals():
     try:
         from live_monitor import LiveMonitor
         
-        with open('../config.json', 'r') as f:
+        with open(CONFIG_PATH, 'r') as f:
             config = json.load(f)
         watchlist = config['watchlist']
         
