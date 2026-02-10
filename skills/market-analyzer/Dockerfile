@@ -26,7 +26,7 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Create data volume mountpoint
-VOLUME ["/app/data"]
+VOLUME ["/data"]
 
 # Expose port
 EXPOSE 8080
