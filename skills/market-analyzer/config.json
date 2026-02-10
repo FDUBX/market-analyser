@@ -6,6 +6,8 @@
   },
   "telegram": {
     "enabled": true,
+    "bot_token": "",
+    "chat_id": "",
     "daily_summary_time": "08:00",
     "alert_threshold": 6.0
   },

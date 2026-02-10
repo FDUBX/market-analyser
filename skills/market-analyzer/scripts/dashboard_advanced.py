@@ -75,6 +75,7 @@ def generate_nav(active='simulator'):
         <a href="/strategies" class="{'active' if active == 'strategies' else ''}">⚙️ Strategies</a>
         <a href="/compare" class="{'active' if active == 'compare' else ''}">📈 Compare</a>
         <a href="/live" class="{'active' if active == 'live' else ''}">🔴 Live Trading</a>
+        <a href="/settings/telegram" class="{'active' if active == 'telegram' else ''}">✈️ Telegram</a>
     </nav>
     """
 
@@ -949,6 +950,254 @@ async def reset_live_portfolio():
         return RedirectResponse(url='/live', status_code=303)
     except Exception as e:
         return HTMLResponse(f"<html><body><h1>Erreur</h1><p>{str(e)}</p><a href='/live'>Retour</a></body></html>")
+
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.json')
+
+def load_config():
+    with open(CONFIG_PATH, 'r') as f:
+        return json.load(f)
+
+def save_config(config):
+    with open(CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+@app.get("/settings/telegram", response_class=HTMLResponse)
+async def telegram_settings():
+    """Telegram configuration page"""
+    config = load_config()
+    tg = config.get('telegram', {})
+    enabled = tg.get('enabled', False)
+    bot_token = tg.get('bot_token', '')
+    chat_id = tg.get('chat_id', '')
+    alert_threshold = tg.get('alert_threshold', 6.0)
+    daily_summary_time = tg.get('daily_summary_time', '08:00')
+
+    checked = 'checked' if enabled else ''
+    token_masked = f"{bot_token[:10]}...{bot_token[-4:]}" if len(bot_token) > 14 else bot_token
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <title>Market Analyzer – Telegram Setup</title>
+        {COMMON_HEAD}
+        <style>
+            .tg-form {{ max-width: 600px; margin: 0 auto; }}
+            .tg-form .field {{ margin-bottom: 20px; }}
+            .tg-form label {{ display: block; margin-bottom: 6px; font-weight: 600; color: #94a3b8; font-size: 0.9em; letter-spacing: 0.05em; text-transform: uppercase; }}
+            .tg-form input[type=text], .tg-form input[type=time], .tg-form input[type=number] {{ width: 100%; padding: 12px 16px; border: 2px solid #334155; border-radius: 8px; background: #0f172a; color: #e2e8f0; font-size: 14px; }}
+            .tg-form input:focus {{ outline: none; border-color: #667eea; }}
+            .toggle-row {{ display: flex; align-items: center; gap: 12px; }}
+            .toggle {{ position: relative; width: 50px; height: 26px; }}
+            .toggle input {{ opacity: 0; width: 0; height: 0; }}
+            .slider {{ position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #334155; border-radius: 26px; transition: 0.3s; }}
+            .slider:before {{ position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }}
+            input:checked + .slider {{ background: #10b981; }}
+            input:checked + .slider:before {{ transform: translateX(24px); }}
+            .actions {{ display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }}
+            .alert-box {{ padding: 14px 20px; border-radius: 10px; margin-bottom: 20px; font-size: 0.95em; display: none; }}
+            .alert-success {{ background: #065f4620; border: 1px solid #10b981; color: #6ee7b7; display: block; }}
+            .alert-error {{ background: #7f1d1d20; border: 1px solid #ef4444; color: #fca5a5; display: block; }}
+            .hint {{ font-size: 0.82em; color: #64748b; margin-top: 5px; }}
+            .section-divider {{ border: none; border-top: 2px solid #334155; margin: 30px 0; }}
+            .test-result {{ margin-top: 15px; padding: 12px 16px; border-radius: 8px; font-size: 0.9em; display: none; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>✈️ Telegram Setup</h1>
+                <p>Configure les notifications de trading sur Telegram</p>
+            </header>
+            {generate_nav('telegram')}
+
+            <div class="tg-form">
+                <div id="save-alert" class="alert-box"></div>
+
+                <div class="card">
+                    <div class="card-header">🔑 Connexion Bot</div>
+
+                    <form id="tg-form">
+                        <div class="field">
+                            <label>Bot Token</label>
+                            <input type="text" name="bot_token" id="bot_token"
+                                placeholder="123456789:ABCDefghijklmNOPQRSTUvwxyz"
+                                value="{bot_token}" autocomplete="off" />
+                            <div class="hint">Obtenu via <strong>@BotFather</strong> sur Telegram. Ex: <code>123456:ABC...</code></div>
+                        </div>
+
+                        <div class="field">
+                            <label>Chat ID</label>
+                            <input type="text" name="chat_id" id="chat_id"
+                                placeholder="-100123456789 ou 6812190723"
+                                value="{chat_id}" />
+                            <div class="hint">Ton ID perso ou l'ID d'un groupe/canal. Utilise <strong>@userinfobot</strong> pour le trouver.</div>
+                        </div>
+
+                        <hr class="section-divider">
+
+                        <div class="card-header">⚙️ Paramètres</div>
+
+                        <div class="field">
+                            <div class="toggle-row">
+                                <label class="toggle">
+                                    <input type="checkbox" name="enabled" id="enabled" {checked}>
+                                    <span class="slider"></span>
+                                </label>
+                                <span>Notifications activées</span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label>Seuil d'alerte (score minimum)</label>
+                            <input type="number" name="alert_threshold" id="alert_threshold"
+                                min="0" max="10" step="0.5" value="{alert_threshold}" />
+                            <div class="hint">Envoie une alerte quand un signal dépasse ce score (sur 10).</div>
+                        </div>
+
+                        <div class="field">
+                            <label>Résumé quotidien à</label>
+                            <input type="time" name="daily_summary_time" id="daily_summary_time"
+                                value="{daily_summary_time}" />
+                            <div class="hint">Heure d'envoi du résumé journalier du portfolio.</div>
+                        </div>
+
+                        <div class="actions">
+                            <button type="button" class="btn-primary" onclick="saveSettings()">💾 Sauvegarder</button>
+                            <button type="button" class="btn-success" onclick="sendTest()">🧪 Test notification</button>
+                        </div>
+                    </form>
+
+                    <div id="test-result" class="test-result"></div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        async function saveSettings() {{
+            const form = document.getElementById('tg-form');
+            const data = new FormData(form);
+
+            // Checkbox fix: not included in FormData when unchecked
+            if (!form.querySelector('#enabled').checked) {{
+                data.set('enabled', 'false');
+            }} else {{
+                data.set('enabled', 'true');
+            }}
+
+            const resp = await fetch('/settings/telegram/save', {{
+                method: 'POST',
+                body: data
+            }});
+            const result = await resp.json();
+            const box = document.getElementById('save-alert');
+            box.className = 'alert-box ' + (result.success ? 'alert-success' : 'alert-error');
+            box.textContent = result.message;
+            box.style.display = 'block';
+            setTimeout(() => box.style.display = 'none', 4000);
+        }}
+
+        async function sendTest() {{
+            const botToken = document.getElementById('bot_token').value.trim();
+            const chatId = document.getElementById('chat_id').value.trim();
+
+            const data = new FormData();
+            data.append('bot_token', botToken);
+            data.append('chat_id', chatId);
+
+            const resultBox = document.getElementById('test-result');
+            resultBox.style.display = 'block';
+            resultBox.style.background = '#1e293b';
+            resultBox.style.border = '1px solid #334155';
+            resultBox.style.color = '#94a3b8';
+            resultBox.textContent = '⏳ Envoi en cours...';
+
+            const resp = await fetch('/settings/telegram/test', {{
+                method: 'POST',
+                body: data
+            }});
+            const result = await resp.json();
+
+            if (result.success) {{
+                resultBox.style.background = '#065f4620';
+                resultBox.style.border = '1px solid #10b981';
+                resultBox.style.color = '#6ee7b7';
+                resultBox.textContent = '✅ ' + result.message;
+            }} else {{
+                resultBox.style.background = '#7f1d1d20';
+                resultBox.style.border = '1px solid #ef4444';
+                resultBox.style.color = '#fca5a5';
+                resultBox.textContent = '❌ ' + result.message;
+            }}
+        }}
+        </script>
+    </body>
+    </html>
+    """
+
+@app.post("/settings/telegram/save")
+async def save_telegram_settings(
+    bot_token: str = Form(''),
+    chat_id: str = Form(''),
+    enabled: str = Form('false'),
+    alert_threshold: float = Form(6.0),
+    daily_summary_time: str = Form('08:00')
+):
+    """Save Telegram configuration to config.json"""
+    try:
+        config = load_config()
+        config['telegram'] = {
+            'enabled': enabled == 'true',
+            'bot_token': bot_token.strip(),
+            'chat_id': chat_id.strip(),
+            'alert_threshold': alert_threshold,
+            'daily_summary_time': daily_summary_time
+        }
+        save_config(config)
+        return JSONResponse({'success': True, 'message': '✅ Configuration sauvegardée !'})
+    except Exception as e:
+        return JSONResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+
+@app.post("/settings/telegram/test")
+async def test_telegram_notification(
+    bot_token: str = Form(''),
+    chat_id: str = Form('')
+):
+    """Send a test message to Telegram"""
+    import urllib.request
+    import urllib.parse
+
+    bot_token = bot_token.strip()
+    chat_id = chat_id.strip()
+
+    if not bot_token or not chat_id:
+        return JSONResponse({'success': False, 'message': 'Bot token et Chat ID requis.'})
+
+    try:
+        text = (
+            "🧪 *Test Market Analyzer*\n\n"
+            "✅ Connexion Telegram configurée avec succès !\n"
+            f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
+            "_Market Analyzer est prêt à t'envoyer des alertes._"
+        )
+        payload = urllib.parse.urlencode({
+            'chat_id': chat_id,
+            'text': text,
+            'parse_mode': 'Markdown'
+        }).encode()
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        req = urllib.request.Request(url, data=payload, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+
+        if result.get('ok'):
+            return JSONResponse({'success': True, 'message': 'Message envoyé ! Vérifie ton Telegram.'})
+        else:
+            return JSONResponse({'success': False, 'message': result.get('description', 'Erreur inconnue')})
+    except Exception as e:
+        return JSONResponse({'success': False, 'message': str(e)})
+
 
 def main():
     import argparse
