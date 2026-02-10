@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DATA_DIR="/data"
+DATA_DIR="${DATA_DIR:-/app/data}"
 APP_DIR="/app"
 
 echo "🚀 Market Analyzer - Starting up..."
