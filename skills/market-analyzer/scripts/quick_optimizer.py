@@ -4,7 +4,8 @@ Quick optimizer - Test multiple configurations fast
 """
 
 import sys
-sys.path.insert(0, '/home/pi/.openclaw/workspace/skills/market-analyzer/scripts')
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from portfolio_sim import PortfolioSimulator
 import sqlite3

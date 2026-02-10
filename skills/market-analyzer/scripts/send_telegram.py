@@ -9,7 +9,7 @@ import os
 
 def send_notification(message):
     """Create a notification request file"""
-    notifications_dir = "/home/pi/.openclaw/workspace/skills/market-analyzer/notifications"
+    notifications_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "notifications")
     os.makedirs(notifications_dir, exist_ok=True)
     
     # Create notification file

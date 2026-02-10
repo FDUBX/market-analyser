@@ -1,15 +1,23 @@
 {
-  "watchlist": ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "AMZN", "META"],
+  "watchlist": [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "NVDA",
+    "TSLA",
+    "AMZN",
+    "META"
+  ],
   "thresholds": {
     "buy": 5.5,
     "sell": 4.5
   },
   "telegram": {
     "enabled": true,
-    "bot_token": "",
-    "chat_id": "",
-    "daily_summary_time": "08:00",
-    "alert_threshold": 6.0
+    "bot_token": "8576533690:AAEZznuQYqvG_Ceri4NUUtPTh1FjJcRBQOE",
+    "chat_id": "-5281618396",
+    "alert_threshold": 6.0,
+    "daily_summary_time": "06:15"
   },
   "backtest": {
     "initial_capital": 10000,

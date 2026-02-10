@@ -1207,7 +1207,7 @@ def main():
     args = parser.parse_args()
     
     print(f"\n🚀 Starting Advanced Market Analyzer Dashboard...")
-    print(f"📍 http://192.168.1.64:{args.port}")
+    print(f"📍 http://0.0.0.0:{args.port}")
     print(f"\n💡 Press Ctrl+C to stop\n")
     
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
