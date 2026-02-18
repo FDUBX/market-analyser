@@ -126,22 +126,33 @@ class LiveMonitor:
     
     def update_positions_prices(self, watchlist):
         """Update current prices for all positions"""
+        import yfinance as yf
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         for ticker in watchlist:
-            # Get latest price from cache
+            # First try: force-refresh cache for the last 5 days to get fresh data
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=1)
-            data = self.cache.get_cached_data(ticker, start_date, end_date)
+            start_date = end_date - timedelta(days=5)
+            self.cache.fetch_and_cache(ticker, start_date, end_date, force_refresh=True)
+            data = self.cache.get_cached_data(ticker, end_date - timedelta(days=2), end_date)
             
             if not data.empty:
                 current_price = float(data['Close'].iloc[-1])
-                cursor.execute('''
-                    UPDATE positions 
-                    SET current_price = ?
-                    WHERE ticker = ?
-                ''', (current_price, ticker))
+            else:
+                # Fallback: fetch current price directly from yfinance
+                try:
+                    stock = yf.Ticker(ticker)
+                    info = stock.fast_info
+                    current_price = float(info.last_price)
+                except Exception:
+                    continue
+            
+            cursor.execute('''
+                UPDATE positions 
+                SET current_price = ?
+                WHERE ticker = ?
+            ''', (current_price, ticker))
         
         conn.commit()
         conn.close()
@@ -214,6 +225,21 @@ class LiveMonitor:
             else:
                 # No position - check buy signal
                 if score >= buy_threshold:
+                    # FIX BUG-6: Check stop-loss cooldown (3 days) to avoid immediate rebuy after SL
+                    conn2 = sqlite3.connect(self.db_path)
+                    cursor2 = conn2.cursor()
+                    cooldown_cutoff = (datetime.now() - timedelta(days=3)).isoformat()
+                    cursor2.execute('''
+                        SELECT COUNT(*) FROM trades
+                        WHERE ticker = ? AND action = 'SELL' AND reason = 'STOP_LOSS'
+                        AND timestamp > ?
+                    ''', (ticker, cooldown_cutoff))
+                    recent_sl = cursor2.fetchone()[0]
+                    conn2.close()
+                    
+                    if recent_sl > 0:
+                        continue  # Skip: in cooldown period after stop-loss
+                    
                     signals.append({
                         'ticker': ticker,
                         'action': 'BUY',
@@ -419,8 +445,13 @@ def main():
                 
                 monitor.calculate_total_value()
                 print("\n✅ All signals executed")
+            else:
+                # FIX BUG-2: Update total_value even when not executing signals
+                monitor.calculate_total_value()
         else:
             print("✅ No signals - all positions within targets")
+            # FIX BUG-2: Always update total_value after price refresh
+            monitor.calculate_total_value()
 
 if __name__ == '__main__':
     main()

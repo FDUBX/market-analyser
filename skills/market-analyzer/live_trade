@@ -21,6 +21,32 @@ case "$1" in
             python3 live_monitor.py --reset
         fi
         ;;
+    trades|h)
+        # FIX BUG-4: View trade history
+        python3 -c "
+import sqlite3, os
+db = os.path.join(os.path.dirname(os.path.abspath('live_portfolio.db')), 'live_portfolio.db')
+conn = sqlite3.connect(db)
+c = conn.cursor()
+c.execute('''SELECT ticker, action, shares, price, reason, timestamp, pnl
+             FROM trades ORDER BY timestamp DESC LIMIT 20''')
+rows = c.fetchall()
+conn.close()
+if not rows:
+    print('No trades yet.')
+else:
+    print(f\"\n📋 Trade History (last 20)\")
+    print('='*80)
+    print(f\"{'Date':<20} {'Action':<6} {'Ticker':<8} {'Shares':<7} {'Price':<10} {'Reason':<12} {'P&L'}\")
+    print('-'*80)
+    for r in rows:
+        ticker, action, shares, price, reason, ts, pnl = r
+        pnl_str = f'\${pnl:+.2f}' if pnl else '-'
+        date_str = ts[:16] if ts else '-'
+        emoji = '🟢' if action == 'BUY' else '🔴'
+        print(f\"{date_str:<20} {emoji}{action:<5} {ticker:<8} {shares:<7} \${price:<9.2f} {reason or '-':<12} {pnl_str}\")
+"
+        ;;
     alert)
         # Send signals to Telegram
         OUTPUT=$(python3 telegram_alerts.py 2>&1)
@@ -41,6 +67,7 @@ case "$1" in
         echo "  status (s)   - Show portfolio status"
         echo "  analyze (a)  - Analyze market and show signals"
         echo "  trade (t)    - Analyze and execute trades"
+        echo "  trades (h)   - Show trade history (last 20)"
         echo "  alert        - Send Telegram alerts for signals"
         echo "  reset (r)    - Reset portfolio to \$10,000"
         echo ""
@@ -48,5 +75,6 @@ case "$1" in
         echo "  ./live_trade status"
         echo "  ./live_trade analyze"
         echo "  ./live_trade trade"
+        echo "  ./live_trade trades"
         ;;
 esac

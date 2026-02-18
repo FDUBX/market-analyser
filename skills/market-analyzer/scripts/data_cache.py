@@ -187,6 +187,7 @@ class DataCache:
                 return json.loads(row[0])
             else:
                 # Try to fetch from API
+                # FIX BUG-5: Catch specific Exception instead of bare except
                 try:
                     stock = yf.Ticker(ticker)
                     info = stock.info
@@ -196,7 +197,8 @@ class DataCache:
                     ''', (ticker, json.dumps(info)))
                     conn.commit()
                     return info
-                except:
+                except Exception as e:
+                    print(f"  ⚠️  Could not fetch info for {ticker}: {e}")
                     return {}
         finally:
             conn.close()
